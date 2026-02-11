@@ -29,6 +29,8 @@ MILESTONE_TYPES = [
 
 ROLES = ["FE", "BE", "iOS", "Android", "QA"]
 PHASES = ["DEV", "QA"]
+PRODUCTS = ["Imran Siddiqui", "Angelia Agustina", "Heba Hosny"]
+PLATFORMS = ["iOS", "Android", "Web", "Backend", "AI", "Cloud"]
 
 # Helper functions
 def generate_month_options():
@@ -302,12 +304,12 @@ if page == "📝 Project Intake":
         
         with col1:
             project_name = st.text_input("Project Name *", placeholder="Enter project name")
-            product = st.text_input("Product *", placeholder="Enter product name")
+            product = st.selectbox("Product *", options=["Select Product"] + PRODUCTS)
             business_owner = st.text_input("Business Owner (Stakeholders)", placeholder="Enter business owner name")
             scrum_master = st.text_input("Scrum Master", placeholder="Enter scrum master name")
         
         with col2:
-            platforms = st.text_input("Platforms", placeholder="e.g., iOS, Android, Web")
+            platforms = st.multiselect("Platforms", options=PLATFORMS)
             planned_go_live = st.date_input("Planned Go-Live", value=date.today())
             delivery_month = st.selectbox("Delivery Month *", options=generate_month_options())
             status = st.selectbox("Status *", options=PROJECT_STATUSES)
@@ -317,16 +319,18 @@ if page == "📝 Project Intake":
         submitted = st.form_submit_button("💾 Save Project", use_container_width=True)
         
         if submitted:
-            if not project_name or not product:
+            if not project_name or product == "Select Product":
                 st.error("❌ Project Name and Product are required!")
             else:
                 try:
+                    # Convert platforms list to comma-separated string
+                    platforms_str = ", ".join(platforms) if platforms else ""
                     add_project(
                         project_name,
                         product,
                         business_owner,
                         scrum_master,
-                        platforms,
+                        platforms_str,
                         planned_go_live.isoformat(),
                         status,
                         delivery_month,
