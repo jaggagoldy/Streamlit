@@ -357,38 +357,47 @@ if page == "📝 Project Intake":
     projects_df = get_all_projects(month_f, product_f, status_f)
     
     if not projects_df.empty:
-        # Display projects with delete buttons
+        # Table Header
+        header_cols = st.columns([2, 1.5, 1.5, 1, 1, 1, 0.5])
+        header_cols[0].markdown("**Project Name**")
+        header_cols[1].markdown("**Product**")
+        header_cols[2].markdown("**Status**")
+        header_cols[3].markdown("**Month**")
+        header_cols[4].markdown("**Go-Live**")
+        header_cols[5].markdown("**Scrum Master**")
+        header_cols[6].markdown("**Action**")
+        st.markdown("---")
+
+        # Table Rows
         for idx, row in projects_df.iterrows():
-            with st.expander(f"**{row['name']}** - {row['status']}", expanded=False):
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.write(f"**Product:** {row['product']}")
-                    st.write(f"**Business Owner:** {row['business_owner']}")
-                    st.write(f"**Scrum Master:** {row['scrum_master']}")
-                    st.write(f"**Platforms:** {row['platforms']}")
-                    st.write(f"**Delivery Month:** {row['delivery_month']}")
-                    st.write(f"**Planned Go-Live:** {row['planned_go_live']}")
-                    st.write(f"**Status:** {row['status']}")
-                    if row['notes']:
-                        st.write(f"**Notes:** {row['notes']}")
-                with col2:
-                    if st.button("🗑️ Delete", key=f"delete_project_{row['id']}"):
-                        st.session_state.delete_confirm[f"project_{row['id']}"] = True
-                        st.rerun()
-                    
-                    if st.session_state.delete_confirm.get(f"project_{row['id']}", False):
-                        st.warning("⚠️ Are you sure?")
-                        col_yes, col_no = st.columns(2)
-                        with col_yes:
-                            if st.button("Yes", key=f"confirm_delete_project_{row['id']}"):
-                                delete_project(row['id'])
-                                st.session_state.delete_confirm[f"project_{row['id']}"] = False
-                                st.success("✅ Project deleted!")
-                                st.rerun()
-                        with col_no:
-                            if st.button("No", key=f"cancel_delete_project_{row['id']}"):
-                                st.session_state.delete_confirm[f"project_{row['id']}"] = False
-                                st.rerun()
+            row_cols = st.columns([2, 1.5, 1.5, 1, 1, 1, 0.5])
+            row_cols[0].write(row['name'])
+            row_cols[1].write(row['product'])
+            row_cols[2].write(row['status'])
+            row_cols[3].write(row['delivery_month'])
+            row_cols[4].write(row['planned_go_live'])
+            row_cols[5].write(row['scrum_master'] or "—")
+            
+            with row_cols[6]:
+                if st.button("🗑️", key=f"delete_project_{row['id']}"):
+                    st.session_state.delete_confirm[f"project_{row['id']}"] = True
+                    st.rerun()
+            
+            if st.session_state.delete_confirm.get(f"project_{row['id']}", False):
+                with st.container():
+                    st.warning(f"⚠️ Delete project '{row['name']}'?")
+                    col_yes, col_no = st.columns([1, 4])
+                    with col_yes:
+                        if st.button("Confirm", key=f"confirm_delete_project_{row['id']}"):
+                            delete_project(row['id'])
+                            st.session_state.delete_confirm[f"project_{row['id']}"] = False
+                            st.success("✅ Project deleted!")
+                            st.rerun()
+                    with col_no:
+                        if st.button("Cancel", key=f"cancel_delete_project_{row['id']}"):
+                            st.session_state.delete_confirm[f"project_{row['id']}"] = False
+                            st.rerun()
+            st.markdown("<hr style='margin:0.2em 0'>", unsafe_allow_html=True)
     else:
         st.info("No projects found. Add your first project above!")
 
@@ -456,30 +465,41 @@ elif page == "🎯 Milestones":
             
             milestones_df = get_milestones_for_project(project_id)
             if not milestones_df.empty:
+                # Milestone Header
+                m_header = st.columns([2, 1.5, 1.5, 3, 0.5])
+                m_header[0].markdown("**Type**")
+                m_header[1].markdown("**Planned**")
+                m_header[2].markdown("**Revised**")
+                m_header[3].markdown("**Reason for Delay**")
+                m_header[4].markdown("**Action**")
+                st.markdown("---")
+
                 for idx, row in milestones_df.iterrows():
-                    col1, col2 = st.columns([5, 1])
-                    with col1:
-                        st.write(f"**{row['milestone_type']}** - Planned: {row['planned_date']}" + 
-                                (f" | Revised: {row['revised_date']}" if row['revised_date'] else "") +
-                                (f" | Reason: {row['delay_reason']}" if row['delay_reason'] else ""))
-                    with col2:
+                    m_row = st.columns([2, 1.5, 1.5, 3, 0.5])
+                    m_row[0].write(row['milestone_type'])
+                    m_row[1].write(row['planned_date'])
+                    m_row[2].write(row['revised_date'] or "—")
+                    m_row[3].write(row['delay_reason'] or "—")
+                    
+                    with m_row[4]:
                         if st.button("🗑️", key=f"delete_milestone_{row['id']}"):
                             st.session_state.delete_confirm[f"milestone_{row['id']}"] = True
                             st.rerun()
-                        
-                        if st.session_state.delete_confirm.get(f"milestone_{row['id']}", False):
-                            st.warning("Delete?")
-                            col_yes, col_no = st.columns(2)
-                            with col_yes:
-                                if st.button("Yes", key=f"confirm_delete_milestone_{row['id']}"):
-                                    delete_milestone(row['id'])
-                                    st.session_state.delete_confirm[f"milestone_{row['id']}"] = False
-                                    st.success("✅ Deleted!")
-                                    st.rerun()
-                            with col_no:
-                                if st.button("No", key=f"cancel_delete_milestone_{row['id']}"):
-                                    st.session_state.delete_confirm[f"milestone_{row['id']}"] = False
-                                    st.rerun()
+                    
+                    if st.session_state.delete_confirm.get(f"milestone_{row['id']}", False):
+                        st.warning(f"Delete milestone?")
+                        col_yes, col_no = st.columns([1, 4])
+                        with col_yes:
+                            if st.button("Confirm", key=f"confirm_delete_milestone_{row['id']}"):
+                                delete_milestone(row['id'])
+                                st.session_state.delete_confirm[f"milestone_{row['id']}"] = False
+                                st.success("✅ Deleted!")
+                                st.rerun()
+                        with col_no:
+                            if st.button("Cancel", key=f"cancel_delete_milestone_{row['id']}"):
+                                st.session_state.delete_confirm[f"milestone_{row['id']}"] = False
+                                st.rerun()
+                    st.markdown("<hr style='margin:0.2em 0'>", unsafe_allow_html=True)
             else:
                 st.info("No milestones yet for this project.")
 
@@ -526,28 +546,43 @@ elif page == "👥 Resources":
         
         resources_df = get_all_resources()
         if not resources_df.empty:
+            # Resource Header
+            r_header = st.columns([2, 1, 2, 1, 1, 0.5])
+            r_header[0].markdown("**Employee Name**")
+            r_header[1].markdown("**Role**")
+            r_header[2].markdown("**Project**")
+            r_header[3].markdown("**Phase**")
+            r_header[4].markdown("**Allocation**")
+            r_header[5].markdown("**Action**")
+            st.markdown("---")
+
             for idx, row in resources_df.iterrows():
-                col1, col2 = st.columns([5, 1])
-                with col1:
-                    st.write(f"**{row['employee_name']}** ({row['role']}) - {row['project_name']} | Phase: {row['phase']} | Allocation: {row['allocation_pct']}%")
-                with col2:
+                r_row = st.columns([2, 1, 2, 1, 1, 0.5])
+                r_row[0].write(row['employee_name'])
+                r_row[1].write(row['role'])
+                r_row[2].write(row['project_name'])
+                r_row[3].write(row['phase'])
+                r_row[4].write(f"{row['allocation_pct']}%")
+                
+                with r_row[5]:
                     if st.button("🗑️", key=f"delete_resource_{row['id']}"):
                         st.session_state.delete_confirm[f"resource_{row['id']}"] = True
                         st.rerun()
-                    
-                    if st.session_state.delete_confirm.get(f"resource_{row['id']}", False):
-                        st.warning("Delete?")
-                        col_yes, col_no = st.columns(2)
-                        with col_yes:
-                            if st.button("Yes", key=f"confirm_delete_resource_{row['id']}"):
-                                delete_resource(row['id'])
-                                st.session_state.delete_confirm[f"resource_{row['id']}"] = False
-                                st.success("✅ Deleted!")
-                                st.rerun()
-                        with col_no:
-                            if st.button("No", key=f"cancel_delete_resource_{row['id']}"):
-                                st.session_state.delete_confirm[f"resource_{row['id']}"] = False
-                                st.rerun()
+                
+                if st.session_state.delete_confirm.get(f"resource_{row['id']}", False):
+                    st.warning(f"Delete allocation?")
+                    col_yes, col_no = st.columns([1, 4])
+                    with col_yes:
+                        if st.button("Confirm", key=f"confirm_delete_resource_{row['id']}"):
+                            delete_resource(row['id'])
+                            st.session_state.delete_confirm[f"resource_{row['id']}"] = False
+                            st.success("✅ Deleted!")
+                            st.rerun()
+                    with col_no:
+                        if st.button("Cancel", key=f"cancel_delete_resource_{row['id']}"):
+                            st.session_state.delete_confirm[f"resource_{row['id']}"] = False
+                            st.rerun()
+                st.markdown("<hr style='margin:0.2em 0'>", unsafe_allow_html=True)
         else:
             st.info("No resources assigned yet.")
 
