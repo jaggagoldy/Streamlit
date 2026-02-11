@@ -199,7 +199,9 @@ def delete_project(project_id):
     """Delete a project and all related milestones and resources."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    # Foreign key constraints with ON DELETE CASCADE will handle related records
+    # Manually delete related records first because existing schema may lack ON DELETE CASCADE
+    cursor.execute("DELETE FROM milestones WHERE project_id = ?", (project_id,))
+    cursor.execute("DELETE FROM resources WHERE project_id = ?", (project_id,))
     cursor.execute("DELETE FROM projects WHERE id = ?", (project_id,))
     conn.commit()
     conn.close()
