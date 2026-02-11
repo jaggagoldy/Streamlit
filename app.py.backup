@@ -1,0 +1,397 @@
+import streamlit as st
+import sqlite3
+import pandas as pd
+from datetime import date, datetime
+
+# Database initialization
+def init_db():
+    """Initialize SQLite database and create tables if they don't exist."""
+    conn = sqlite3.connect('project_tracker.db')
+    cursor = conn.cursor()
+    
+    # Create projects table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            product_squad TEXT,
+            business_owner TEXT,
+            planned_go_live DATE,
+            status TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # Create milestones table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS milestones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            milestone_type TEXT NOT NULL,
+            planned_date DATE,
+            revised_date DATE,
+            delay_reason TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects (id)
+        )
+    ''')
+    
+    # Create resources table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS resources (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            project_id INTEGER NOT NULL,
+            phase TEXT NOT NULL,
+            allocation_pct INTEGER,
+            end_rule TEXT DEFAULT 'Till Go-Live',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (project_id) REFERENCES projects (id)
+        )
+    ''')
+    
+    conn.commit()
+    conn.close()
+
+# Database helper functions
+def get_db_connection():
+    """Get database connection."""
+    return sqlite3.connect('project_tracker.db')
+
+def get_all_projects():
+    """Fetch all projects from database."""
+    conn = get_db_connection()
+    df = pd.read_sql_query("SELECT * FROM projects ORDER BY created_at DESC", conn)
+    conn.close()
+    return df
+
+def get_project_names():
+    """Get list of project names for dropdowns."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name FROM projects ORDER BY name")
+    projects = cursor.fetchall()
+    conn.close()
+    return {name: id for id, name in projects}
+
+def add_project(name, product_squad, business_owner, planned_go_live, status):
+    """Add a new project to database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO projects (name, product_squad, business_owner, planned_go_live, status)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (name, product_squad, business_owner, planned_go_live, status))
+    conn.commit()
+    conn.close()
+
+def get_milestones_for_project(project_id):
+    """Get all milestones for a specific project."""
+    conn = get_db_connection()
+    df = pd.read_sql_query(
+        "SELECT * FROM milestones WHERE project_id = ? ORDER BY planned_date",
+        conn,
+        params=(project_id,)
+    )
+    conn.close()
+    return df
+
+def add_milestone(project_id, milestone_type, planned_date, revised_date, delay_reason):
+    """Add a new milestone to database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO milestones (project_id, milestone_type, planned_date, revised_date, delay_reason)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (project_id, milestone_type, planned_date, revised_date, delay_reason))
+    conn.commit()
+    conn.close()
+
+def get_resources_for_project(project_id):
+    """Get all resources for a specific project."""
+    conn = get_db_connection()
+    df = pd.read_sql_query(
+        "SELECT * FROM resources WHERE project_id = ? ORDER BY created_at DESC",
+        conn,
+        params=(project_id,)
+    )
+    conn.close()
+    return df
+
+def get_all_resources():
+    """Get all resources with project names."""
+    conn = get_db_connection()
+    df = pd.read_sql_query('''
+        SELECT r.*, p.name as project_name 
+        FROM resources r
+        JOIN projects p ON r.project_id = p.id
+        ORDER BY r.created_at DESC
+    ''', conn)
+    conn.close()
+    return df
+
+def add_resource(employee_name, role, project_id, phase, allocation_pct):
+    """Add a new resource to database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO resources (employee_name, role, project_id, phase, allocation_pct)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (employee_name, role, project_id, phase, allocation_pct))
+    conn.commit()
+    conn.close()
+
+# Initialize database
+init_db()
+
+# Streamlit app configuration
+st.set_page_config(
+    page_title="Project Tracker",
+    page_icon="📊",
+    layout="wide"
+)
+
+st.title("📊 Project & Resource Tracker")
+st.markdown("---")
+
+# Create tabs
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📝 Project Intake",
+    "🎯 Milestones",
+    "👥 Resources",
+    "📈 Dashboard"
+])
+
+# TAB 1: PROJECT INTAKE
+with tab1:
+    st.header("Project Intake Form")
+    
+    with st.form("project_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            project_name = st.text_input("Project Name *", placeholder="Enter project name")
+            product_squad = st.text_input("Product / Squad", placeholder="Enter product or squad name")
+            business_owner = st.text_input("Business Owner", placeholder="Enter business owner name")
+        
+        with col2:
+            planned_go_live = st.date_input("Planned Go-Live", value=date.today())
+            status = st.selectbox(
+                "Status *",
+                options=["Brainstorming", "Dev", "QA", "Live", "Delayed"]
+            )
+        
+        submitted = st.form_submit_button("💾 Save Project", use_container_width=True)
+        
+        if submitted:
+            if not project_name:
+                st.error("❌ Project Name is required!")
+            else:
+                try:
+                    add_project(
+                        project_name,
+                        product_squad,
+                        business_owner,
+                        planned_go_live.isoformat(),
+                        status
+                    )
+                    st.success(f"✅ Project '{project_name}' saved successfully!")
+                except Exception as e:
+                    st.error(f"❌ Error saving project: {str(e)}")
+    
+    st.markdown("---")
+    st.subheader("Existing Projects")
+    
+    projects_df = get_all_projects()
+    if not projects_df.empty:
+        # Display projects in a nice table
+        display_df = projects_df[['name', 'product_squad', 'business_owner', 'planned_go_live', 'status']]
+        display_df.columns = ['Project Name', 'Product/Squad', 'Business Owner', 'Planned Go-Live', 'Status']
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No projects yet. Add your first project above!")
+
+# TAB 2: MILESTONES
+with tab2:
+    st.header("Project Milestones")
+    
+    projects = get_project_names()
+    
+    if not projects:
+        st.warning("⚠️ No projects available. Please add a project first in the Project Intake tab.")
+    else:
+        selected_project_name = st.selectbox(
+            "Select Project",
+            options=list(projects.keys()),
+            key="milestone_project_selector"
+        )
+        
+        if selected_project_name:
+            project_id = projects[selected_project_name]
+            
+            st.markdown("---")
+            st.subheader("Add New Milestone")
+            
+            with st.form("milestone_form", clear_on_submit=True):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    milestone_type = st.selectbox(
+                        "Milestone Type *",
+                        options=[
+                            "DEV_START",
+                            "DEV_COMPLETE",
+                            "HANDOVER_TO_QA",
+                            "QA_END",
+                            "STAKEHOLDER_DEMO",
+                            "GO_LIVE"
+                        ]
+                    )
+                    planned_date = st.date_input("Planned Date *", value=date.today())
+                
+                with col2:
+                    revised_date = st.date_input("Revised Date (Optional)", value=None)
+                    delay_reason = st.text_area("Reason for Delay (Optional)", placeholder="Enter reason if delayed")
+                
+                milestone_submitted = st.form_submit_button("➕ Add Milestone", use_container_width=True)
+                
+                if milestone_submitted:
+                    try:
+                        add_milestone(
+                            project_id,
+                            milestone_type,
+                            planned_date.isoformat(),
+                            revised_date.isoformat() if revised_date else None,
+                            delay_reason if delay_reason else None
+                        )
+                        st.success(f"✅ Milestone '{milestone_type}' added successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error adding milestone: {str(e)}")
+            
+            st.markdown("---")
+            st.subheader(f"Milestones for {selected_project_name}")
+            
+            milestones_df = get_milestones_for_project(project_id)
+            if not milestones_df.empty:
+                display_df = milestones_df[['milestone_type', 'planned_date', 'revised_date', 'delay_reason']]
+                display_df.columns = ['Milestone Type', 'Planned Date', 'Revised Date', 'Delay Reason']
+                st.dataframe(display_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("No milestones yet for this project.")
+
+# TAB 3: RESOURCES
+with tab3:
+    st.header("Resource Assignment")
+    
+    projects = get_project_names()
+    
+    if not projects:
+        st.warning("⚠️ No projects available. Please add a project first in the Project Intake tab.")
+    else:
+        st.subheader("Add New Resource")
+        
+        with st.form("resource_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                employee_name = st.text_input("Employee Name *", placeholder="Enter employee name")
+                role = st.selectbox(
+                    "Role *",
+                    options=["FE", "BE", "iOS", "Android", "QA"]
+                )
+                resource_project_name = st.selectbox(
+                    "Select Project *",
+                    options=list(projects.keys()),
+                    key="resource_project_selector"
+                )
+            
+            with col2:
+                phase = st.selectbox(
+                    "Phase *",
+                    options=["DEV", "QA"]
+                )
+                allocation_pct = st.number_input(
+                    "Allocation % *",
+                    min_value=0,
+                    max_value=100,
+                    value=100,
+                    step=5
+                )
+                st.info("📌 End Rule: Till Go-Live")
+            
+            resource_submitted = st.form_submit_button("➕ Add Resource", use_container_width=True)
+            
+            if resource_submitted:
+                if not employee_name:
+                    st.error("❌ Employee Name is required!")
+                else:
+                    try:
+                        resource_project_id = projects[resource_project_name]
+                        add_resource(
+                            employee_name,
+                            role,
+                            resource_project_id,
+                            phase,
+                            allocation_pct
+                        )
+                        st.success(f"✅ Resource '{employee_name}' assigned successfully!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error adding resource: {str(e)}")
+        
+        st.markdown("---")
+        st.subheader("All Resources")
+        
+        resources_df = get_all_resources()
+        if not resources_df.empty:
+            display_df = resources_df[['employee_name', 'role', 'project_name', 'phase', 'allocation_pct', 'end_rule']]
+            display_df.columns = ['Employee Name', 'Role', 'Project', 'Phase', 'Allocation %', 'End Rule']
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No resources assigned yet.")
+
+# TAB 4: DASHBOARD (placeholder - can be customized based on user needs)
+with tab4:
+    st.header("Dashboard Overview")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    projects_df = get_all_projects()
+    resources_df = get_all_resources()
+    
+    with col1:
+        st.metric("Total Projects", len(projects_df))
+    
+    with col2:
+        st.metric("Total Resources", len(resources_df))
+    
+    with col3:
+        if not projects_df.empty:
+            active_projects = len(projects_df[projects_df['status'].isin(['Dev', 'QA'])])
+            st.metric("Active Projects", active_projects)
+        else:
+            st.metric("Active Projects", 0)
+    
+    st.markdown("---")
+    
+    if not projects_df.empty:
+        st.subheader("Projects by Status")
+        status_counts = projects_df['status'].value_counts()
+        st.bar_chart(status_counts)
+        
+        st.markdown("---")
+        st.subheader("Recent Projects")
+        recent_df = projects_df.head(5)[['name', 'status', 'planned_go_live', 'business_owner']]
+        recent_df.columns = ['Project Name', 'Status', 'Go-Live Date', 'Business Owner']
+        st.dataframe(recent_df, use_container_width=True, hide_index=True)
+    else:
+        st.info("No data available yet. Start by adding projects!")
+
+# Footer
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: gray;'>Project & Resource Tracker | Built with Streamlit</div>",
+    unsafe_allow_html=True
+)
