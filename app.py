@@ -31,6 +31,7 @@ ROLES = ["FE", "BE", "iOS", "Android", "QA"]
 PHASES = ["DEV", "QA"]
 PRODUCTS = ["Imran Siddiqui", "Angelia Agustina", "Heba Hosny"]
 PLATFORMS = ["iOS", "Android", "Web", "Backend", "AI", "Cloud"]
+BUSINESS_OWNERS = ["Imran Siddiqui", "Angelia Agustina", "Heba Hosny", "Stakeholder A", "Stakeholder B"]
 
 # Helper functions
 def generate_month_options():
@@ -307,7 +308,7 @@ if page == "📝 Project Intake":
         with col1:
             project_name = st.text_input("Project Name *", placeholder="Enter project name")
             product = st.selectbox("Product *", options=["Select Product"] + PRODUCTS)
-            business_owner = st.text_input("Business Owner (Stakeholders)", placeholder="Enter business owner name")
+            business_owner = st.multiselect("Business Owner (Stakeholders)", options=BUSINESS_OWNERS)
             scrum_master = st.text_input("Scrum Master", placeholder="Enter scrum master name")
         
         with col2:
@@ -325,12 +326,13 @@ if page == "📝 Project Intake":
                 st.error("❌ Project Name and Product are required!")
             else:
                 try:
-                    # Convert platforms list to comma-separated string
+                    # Convert lists to comma-separated strings
                     platforms_str = ", ".join(platforms) if platforms else ""
+                    owners_str = ", ".join(business_owner) if business_owner else ""
                     add_project(
                         project_name,
                         product,
-                        business_owner,
+                        owners_str,
                         scrum_master,
                         platforms_str,
                         planned_go_live.isoformat(),
